@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cashier Dashboard - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Cashier Dashboard</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('cashier_dashboard') }}" class="active">Dashboard</a></li>
+                <li><a href="{{ url_for('cashier_pos') }}">Point of Sale</a></li>
+                <li><a href="{{ url_for('cashier_customers') }}">Customer Accounts</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="dashboard-summary">
+                <div class="summary-card">
+                    <h3>Today's Sales</h3>
+                    <div class="summary-value" id="today-sales">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Transactions Today</h3>
+                    <div class="summary-value" id="today-transactions">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Low Stock Items</h3>
+                    <div class="summary-value" id="low-stock">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Pending Payments</h3>
+                    <div class="summary-value" id="pending-payments">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-actions">
+                <div class="action-card">
+                    <h3>Quick Actions</h3>
+                    <div class="action-buttons">
+                        <a href="{{ url_for('cashier_pos') }}" class="btn btn-primary">New Sale</a>
+                        <a href="{{ url_for('cashier_customers') }}" class="btn btn-secondary">View Customer Accounts</a>
+                    </div>
+                </div>
+                
+                <div class="action-card">
+                    <h3>Low Stock Alerts</h3>
+                    <div class="low-stock-list" id="low-stock-list">
+                        <p>Loading low stock items...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // Fetch dashboard data
+        async function fetchDashboardData() {
+            try {
+                // Fetch inventory data
+                const inventoryResponse = await fetch('/cashier/inventory/get');
+                const inventoryData = await inventoryResponse.json();
+                
+                if (inventoryData.success) {
+                    const inventory = inventoryData.inventory;
+                    
+                    // Count low stock items
+                    const lowStockItems = inventory.filter(item => item.stock <= 10);
+                    document.getElementById('low-stock').textContent = lowStockItems.length;
+                    
+                    // Display low stock items
+                    if (lowStockItems.length > 0) {
+                        const lowStockHtml = lowStockItems.map(item => `
+                            <div class="low-stock-item">
+                                <span class="item-name">${item.name}</span>
+                                <span class="item-stock ${item.stock <= 5 ? 'critical' : ''}">${item.stock} left</span>
+                            </div>
+                        `).join('');
+                        
+                        document.getElementById('low-stock-list').innerHTML = lowStockHtml;
+                    } else {
+                        document.getElementById('low-stock-list').innerHTML = '<p>No low stock items</p>';
+                    }
+                }
+                
+                // For demo purposes, we'll use some mock data
+                document.getElementById('today-sales').textContent = '$1,245.67';
+                document.getElementById('today-transactions').textContent = '15';
+                document.getElementById('pending-payments').textContent = '3';
+                
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            }
+        }
+        
+        // Load dashboard data when page loads
+        document.addEventListener('DOMContentLoaded', fetchDashboardData);
+    </script>
+</body>
+</html>
