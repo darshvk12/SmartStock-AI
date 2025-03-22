@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Accounts - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Customer Accounts</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('cashier_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('cashier_pos') }}">Point of Sale</a></li>
+                <li><a href="{{ url_for('cashier_customers') }}" class="active">Customer Accounts</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="section-header">
+                <h2>Customer Credit Accounts</h2>
+                <div class="search-container">
+                    <input type="text" id="customer-search" placeholder="Search by name, phone, or invoice...">
+                </div>
+            </div>
+            
+            <div class="inventory-table-container">
+                <table class="data-table" id="customers-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Date</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in accounts %}
+                        <tr data-invoice="{{ account['invoice_number'] }}">
+                            <td>{{ account['invoice_number'] }}</td>
+                            <td>{{ account['date'] }}</td>
+                            <td>{{ account['customer_name'] }}</td>
+                            <td>{{ account['customer_phone'] }}</td>
+                            <td>${{ account['total'] }}</td>
+                            <td class="{% if account['payment_status'] == 'pending' %}status-pending{% else %}status-paid{% endif %}">
+                                {{ account['payment_status']|capitalize }}
+                            </td>
+                            <td class="actions-cell">
+                                <button class="btn btn-small view-btn" data-invoice="{{ account['invoice_number'] }}">View</button>
+                                {% if account['payment_status'] == 'pending' %}
+                                <button class="btn btn-small btn-success mark-paid-btn" data-invoice="{{ account['invoice_number'] }}">Mark Paid</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {% if accounts|length == 0 %}
+                        <tr>
+                            <td colspan="7" class="text-center">No customer accounts found</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <!-- View Account Modal -->
+    <div id="view-account-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Account Details</h2>
+            <div id="account-details">
+                <div class="account-info">
+                    <div class="info-row">
+                        <span class="info-label">Invoice #:</span>
+                        <span id="account-invoice" class="info-value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Date:</span>
+                        <span id="account-date" class="info-value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Customer:</span>
+                        <span id="account-customer" class="info-value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone:</span>
+                        <span id="account-phone" class="info-value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status:</span>
+                        <span id="account-status" class="info-value"></span>
+                    </div>
+                </div>
+                
+                <div class="account-items">
+                    <h3>Items</h3>
+                    <table class="data-table" id="account-items-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="account-items-body">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="account-total">
+                    <span class="total-label">Total:</span>
+                    <span id="account-total" class="total-value"></span>
+                </div>
+                
+                <div class="modal-actions" id="account-actions">
+                    <button id="close-account-btn" class="btn btn-outline">Close</button>
+                    <button id="modal-mark-paid-btn" class="btn btn-success">Mark as Paid</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const customersTable = document.getElementById('customers-table');
+        const customerSearch = document.getElementById('customer-search');
+        const viewAccountModal = document.getElementById('view-account-modal');
+        const closeModalBtn = document.querySelector('.close-modal');
+        const closeAccountBtn = document.getElementById('close-account-btn');
+        const modalMarkPaidBtn = document.getElementById('modal-mark-paid-btn');
+        
+        let currentInvoice = '';
+        
+        // Event Listeners
+        customerSearch.addEventListener('input', () => {
+            const searchTerm = customerSearch.value.toLowerCase();
+            const rows = customersTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                if (row.cells.length <= 1) return; // Skip "no accounts found" row
+                
+                const invoice = row.cells[0].textContent.toLowerCase();
+                const customer = row.cells[2].textContent.toLowerCase();
+                const phone = row.cells[3].textContent.toLowerCase();
+                
+                if (invoice.includes(searchTerm) || customer.includes(searchTerm) || phone.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+        
+        customersTable.addEventListener('click', (e) => {
+            if (e.target.classList.contains('view-btn')) {
+                const invoice = e.target.dataset.invoice;
+                viewAccount(invoice);
+            }
+            
+            if (e.target.classList.contains('mark-paid-btn')) {
+                const invoice = e.target.dataset.invoice;
+                if (confirm('Are you sure you want to mark this account as paid?')) {
+                    markAsPaid(invoice);
+                }
+            }
+        });
+        
+        closeModalBtn.addEventListener('click', () => {
+            viewAccountModal.style.display = 'none';
+        });
+        
+        closeAccountBtn.addEventListener('click', () => {
+            viewAccountModal.style.display = 'none';
+        });
+        
+        modalMarkPaidBtn.addEventListener('click', () => {
+            if (currentInvoice && confirm('Are you sure you want to mark this account as paid?')) {
+                markAsPaid(currentInvoice);
+            }
+        });
+        
+        window.addEventListener('click', (event) => {
+            if (event.target === viewAccountModal) {
+                viewAccountModal.style.display = 'none';
+            }
+        });
+        
+        // Functions
+        async function viewAccount(invoice) {
+            try {
+                // In a real app, this would fetch the account details from the server
+                // For this demo, we'll use the data from the table
+                const row = customersTable.querySelector(`tr[data-invoice="${invoice}"]`);
+                
+                if (!row) return;
+                
+                const invoiceNumber = row.cells[0].textContent;
+                const date = row.cells[1].textContent;
+                const customer = row.cells[2].textContent;
+                const phone = row.cells[3].textContent;
+                const total = row.cells[4].textContent;
+                const status = row.cells[5].textContent;
+                
+                // Set current invoice for mark as paid functionality
+                currentInvoice = invoice;
+                
+                // Update modal with account details
+                document.getElementById('account-invoice').textContent = invoiceNumber;
+                document.getElementById('account-date').textContent = date;
+                document.getElementById('account-customer').textContent = customer;
+                document.getElementById('account-phone').textContent = phone;
+                document.getElementById('account-total').textContent = total;
+                
+                const statusElement = document.getElementById('account-status');
+                statusElement.textContent = status;
+                statusElement.className = 'info-value ' + (status.toLowerCase() === 'pending' ? 'status-pending' : 'status-paid');
+                
+                // Show/hide mark as paid button based on status
+                if (status.toLowerCase() === 'pending') {
+                    modalMarkPaidBtn.style.display = 'block';
+                } else {
+                    modalMarkPaidBtn.style.display = 'none';
+                }
+                
+                // For demo purposes, we'll create some sample items
+                const sampleItems = [
+                    { name: 'Rice', quantity: 2, price: 25.99 },
+                    { name: 'Milk', quantity: 3, price: 3.99 },
+                    { name: 'Bread', quantity: 1, price: 2.49 }
+                ];
+                
+                const itemsHtml = sampleItems.map(item => `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.quantity}</td>
+                        <td>$${item.price.toFixed(2)}</td>
+                        <td>$${(item.price * item.quantity).toFixed(2)}</td>
+                    </tr>
+                `).join('');
+                
+                document.getElementById('account-items-body').innerHTML = itemsHtml;
+                
+                // Show modal
+                viewAccountModal.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error viewing account:', error);
+                alert('An error occurred while viewing the account');
+            }
+        }
+        
+        async function markAsPaid(invoice) {
+            try {
+                const response = await fetch(`/cashier/customers/mark-paid/${invoice}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update row in table
+                    const row = customersTable.querySelector(`tr[data-invoice="${invoice}"]`);
+                    if (row) {
+                        row.cells[5].textContent = 'Paid';
+                        row.cells[5].className = 'status-paid';
+                        
+                        // Remove mark as paid button
+                        const actionsCell = row.cells[6];
+                        const markPaidBtn = actionsCell.querySelector('.mark-paid-btn');
+                        if (markPaidBtn) {
+                            markPaidBtn.remove();
+                        }
+                    }
+                    
+                    // Update modal if open
+                    if (viewAccountModal.style.display === 'block' && currentInvoice === invoice) {
+                        document.getElementById('account-status').textContent = 'Paid';
+                        document.getElementById('account-status').className = 'info-value status-paid';
+                        modalMarkPaidBtn.style.display = 'none';
+                    }
+                    
+                    // Show success message
+                    alert('Account marked as paid successfully');
+                    
+                    // Close modal
+                    viewAccountModal.style.display = 'none';
+                } else {
+                    alert('Error marking account as paid');
+                }
+            } catch (error) {
+                console.error('Error marking account as paid:', error);
+                alert('An error occurred while marking the account as paid');
+            }
+        }
+    </script>
+</body>
+</html>
