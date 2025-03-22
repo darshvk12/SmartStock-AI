@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grocery Store Management - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+
+
+
+
+    
+
+    <div class="login-box">
+        <p>Login</p>
+        <form action="{{ url_for('login') }}" method="post">
+            <div class="user-box">
+                <input required name="username" type="text">
+                <label>Username</label>
+            </div>
+            <div class="user-box">
+                <input required name="password" type="password">
+                <label>Password</label>
+            </div>
+            <div class="form-group">
+                <button class="button" type="submit">
+                    <span class="button-content">Login</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+</body>
+</html>
+
+
+<style>
+   
+    .button {
+        position: relative;
+        overflow: hidden;
+        height: 3rem;
+        padding: 0 8rem;
+        border-radius: 1.5rem;
+        background: #c0c771;
+        background-size: 400%;
+      
+        border: none;
+        cursor: pointer;
+    }
+    
+    .button:hover::before {
+        transform: scaleX(1);
+    }
+    
+    .button-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .button::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+        width: 100%;
+        height: inherit;
+        border-radius: inherit;
+        background: linear-gradient(
+            82.3deg,
+            rgba(150, 93, 233, 1) 10.8%,
+            rgba(99, 88, 238, 1) 94.3%
+        );
+        transition: all 0.475s;
+    }
+
+  
+        .login-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(251, 247, 247, 0.1);
+            text-align: center;
+            animation: fadeIn 1s ease-in-out;
+        }   
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .input-field:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 5px #4facfe;
+        }
+        .login-button {
+            width: 100%;
+            padding: 10px;
+            background: #4facfe;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .login-button:hover {
+            background: #00c6fb;
+        }
+    
+    </style>
+
+
