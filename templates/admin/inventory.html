@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Inventory Management</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin_inventory') }}" class="active">Inventory</a></li>
+                <li><a href="{{ url_for('admin_vendors') }}">Vendors</a></li>
+                <li><a href="{{ url_for('admin_sales') }}">Sales Analytics</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="inventory-actions">
+                <div class="search-container">
+                    <input type="text" id="inventory-search" placeholder="Search inventory...">
+                </div>
+                <button id="add-item-btn" class="btn btn-primary">Add New Item</button>
+            </div>
+            
+            <div class="inventory-table-container">
+                <table class="data-table" id="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Vendor</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventory %}
+                        <tr data-id="{{ item['id'] }}">
+                            <td>{{ item['name'] }}</td>
+                            <td>{{ item['category'] }}</td>
+                            <td>${{ item['price'] }}</td>
+                            <td class="{% if item['stock'] < 10 %}low-stock{% endif %}">{{ item['stock'] }}</td>
+                            <td>{{ item['vendor'] }}</td>
+                            <td class="actions-cell">
+                                <button class="btn btn-small restock-btn" data-id="{{ item['id'] }}">Restock</button>
+                                <button class="btn btn-small btn-danger delete-btn" data-id="{{ item['id'] }}">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Add Item Modal -->
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Add New Inventory Item</h2>
+            <form id="add-item-form">
+                <div class="form-group">
+                    <label for="item-name">Name</label>
+                    <input type="text" id="item-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-category">Category</label>
+                    <input type="text" id="item-category" name="category" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-price">Price</label>
+                    <input type="number" id="item-price" name="price" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-stock">Stock</label>
+                    <input type="number" id="item-stock" name="stock" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="item-vendor">Vendor</label>
+                    <input type="text" id="item-vendor" name="vendor" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Restock Modal -->
+    <div id="restock-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Restock Item</h2>
+            <form id="restock-form">
+                <input type="hidden" id="restock-item-id">
+                <div class="form-group">
+                    <label for="restock-quantity">Quantity to Add</label>
+                    <input type="number" id="restock-quantity" name="quantity" min="1" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Restock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const inventoryTable = document.getElementById('inventory-table');
+        const inventorySearch = document.getElementById('inventory-search');
+        const addItemBtn = document.getElementById('add-item-btn');
+        const addItemModal = document.getElementById('add-item-modal');
+        const addItemForm = document.getElementById('add-item-form');
+        const restockModal = document.getElementById('restock-modal');
+        const restockForm = document.getElementById('restock-form');
+        const restockItemId = document.getElementById('restock-item-id');
+        const closeModalBtns = document.querySelectorAll('.close-modal');
+        
+        // Event Listeners
+        addItemBtn.addEventListener('click', () => {
+            addItemModal.style.display = 'block';
+        });
+        
+        closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                addItemModal.style.display = 'none';
+                restockModal.style.display = 'none';
+            });
+        });
+        
+        window.addEventListener('click', (event) => {
+            if (event.target === addItemModal) {
+                addItemModal.style.display = 'none';
+            }
+            if (event.target === restockModal) {
+                restockModal.style.display = 'none';
+            }
+        });
+        
+        // Search functionality
+        inventorySearch.addEventListener('input', () => {
+            const searchTerm = inventorySearch.value.toLowerCase();
+            const rows = inventoryTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const category = row.cells[1].textContent.toLowerCase();
+                const vendor = row.cells[4].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || category.includes(searchTerm) || vendor.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+        
+        // Add item form submission
+        addItemForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('item-name').value,
+                category: document.getElementById('item-category').value,
+                price: parseFloat(document.getElementById('item-price').value),
+                stock: parseInt(document.getElementById('item-stock').value),
+                vendor: document.getElementById('item-vendor').value
+            };
+            
+            try {
+                const response = await fetch('/admin/inventory/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Add new row to table
+                    const tbody = inventoryTable.querySelector('tbody');
+                    const newRow = document.createElement('tr');
+                    newRow.dataset.id = data.item.id;
+                    
+                    newRow.innerHTML = `
+                        <td>${data.item.name}</td>
+                        <td>${data.item.category}</td>
+                        <td>$${data.item.price}</td>
+                        <td>${data.item.stock}</td>
+                        <td>${data.item.vendor}</td>
+                        <td class="actions-cell">
+                            <button class="btn btn-small restock-btn" data-id="${data.item.id}">Restock</button>
+                            <button class="btn btn-small btn-danger delete-btn" data-id="${data.item.id}">Delete</button>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(newRow);
+                    
+                    // Reset form and close modal
+                    addItemForm.reset();
+                    addItemModal.style.display = 'none';
+                    
+                    // Show success message
+                    alert('Item added successfully!');
+                } else {
+                    alert('Error adding item: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while adding the item.');
+            }
+        });
+        
+        // Restock button click
+        inventoryTable.addEventListener('click', (e) => {
+            if (e.target.classList.contains('restock-btn')) {
+                const itemId = e.target.dataset.id;
+                restockItemId.value = itemId;
+                restockModal.style.display = 'block';
+            }
+            
+            if (e.target.classList.contains('delete-btn')) {
+                const itemId = e.target.dataset.id;
+                const itemName = e.target.closest('tr').cells[0].textContent;
+                
+                if (confirm(`Are you sure you want to delete ${itemName}?`)) {
+                    deleteInventoryItem(itemId);
+                }
+            }
+        });
+        
+        // Restock form submission
+        restockForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const itemId = restockItemId.value;
+            const quantity = parseInt(document.getElementById('restock-quantity').value);
+            
+            try {
+                const response = await fetch(`/admin/inventory/update/${itemId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quantity })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update stock in table
+                    const row = inventoryTable.querySelector(`tr[data-id="${itemId}"]`);
+                    row.cells[3].textContent = data.item.stock;
+                    
+                    // Reset form and close modal
+                    restockForm.reset();
+                    restockModal.style.display = 'none';
+                    
+                    // Show success message
+                    alert('Item restocked successfully!');
+                } else {
+                    alert('Error restocking item: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while restocking the item.');
+            }
+        });
+        
+        // Delete inventory item
+        async function deleteInventoryItem(itemId) {
+            try {
+                const response = await fetch(`/admin/inventory/delete/${itemId}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Remove row from table
+                    const row = inventoryTable.querySelector(`tr[data-id="${itemId}"]`);
+                    row.remove();
+                    
+                    // Show success message
+                    alert('Item deleted successfully!');
+                } else {
+                    alert('Error deleting item: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the item.');
+            }
+        }
+    </script>
+</body>
+</html>
