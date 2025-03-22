@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Point of Sale - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Point of Sale</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('cashier_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('cashier_pos') }}" class="active">Point of Sale</a></li>
+                <li><a href="{{ url_for('cashier_customers') }}">Customer Accounts</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="pos-container">
+                <div class="inventory-section">
+                    <div class="section-header">
+                        <h2>Inventory</h2>
+                        <div class="search-container">
+                            <input type="text" id="inventory-search" placeholder="Search inventory...">
+                        </div>
+                    </div>
+                    
+                    <div class="inventory-table-container">
+                        <table class="data-table" id="inventory-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in inventory %}
+                                <tr data-id="{{ item['id'] }}" data-name="{{ item['name'] }}" data-price="{{ item['price'] }}" data-category="{{ item['category'] }}">
+                                    <td>{{ item['name'] }}</td>
+                                    <td>{{ item['category'] }}</td>
+                                    <td>${{ item['price'] }}</td>
+                                    <td class="{% if item['stock'] < 10 %}low-stock{% endif %}">{{ item['stock'] }}</td>
+                                    <td>
+                                        <button class="btn btn-small add-to-cart-btn" {% if item['stock'] <= 0 %}disabled{% endif %}>Add</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="cart-section">
+                    <div class="section-header">
+                        <h2>Shopping Cart</h2>
+                        <span id="cart-count" class="cart-count">0 items</span>
+                    </div>
+                    
+                    <div class="cart-items-container" id="cart-items">
+                        <div class="empty-cart-message">Cart is empty</div>
+                    </div>
+                    
+                    <div class="cart-summary">
+                        <div class="cart-total">
+                            <span>Total:</span>
+                            <span id="cart-total">$0.00</span>
+                        </div>
+                        
+                        <div class="cart-actions">
+                            <button id="clear-cart-btn" class="animated-button" disabled>
+                                <svg viewBox="0 0 24 24" class="arr-2">
+                                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                                </svg>
+                                <span class="text">Clear Cart</span>
+                                <span class="circle"></span>
+                                <svg viewBox="0 0 24 24" class="arr-1">
+                                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                                </svg>
+                            </button>
+
+                            <button id="checkout-btn" class="animated-button" disabled>
+                                <svg viewBox="0 0 24 24" class="arr-2">
+                                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                                </svg>
+                                <span class="text">Checkout</span>
+                                <span class="circle"></span>
+                                <svg viewBox="0 0 24 24" class="arr-1">
+                                    <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Complete Transaction</h2>
+            <form id="checkout-form">
+                <div class="form-group">
+                    <label for="customer-name">Customer Name (Optional)</label>
+                    <input type="text" id="customer-name" name="customer-name">
+                </div>
+                <div class="form-group">
+                    <label for="customer-phone">Phone Number (Optional)</label>
+                    <input type="text" id="customer-phone" name="customer-phone">
+                </div>
+                <div class="form-group">
+                    <label>Payment Status</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="payment-paid" name="payment-status" value="paid" checked>
+                            <label for="payment-paid">Paid</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="payment-pending" name="payment-status" value="pending">
+                            <label for="payment-pending">Pay Later</label>
+                        </div>
+                    </div>
+                    <div id="payment-warning" class="payment-warning hidden">
+                        Note: "Pay Later" requires customer name and phone number
+                    </div>
+                </div>
+                
+                <div class="invoice-preview">
+                    <h3>Invoice Preview</h3>
+                    <div class="invoice-details">
+                        <div class="invoice-row">
+                            <span>Date:</span>
+                            <span id="invoice-date"></span>
+                        </div>
+                        <div class="invoice-row">
+                            <span>Items:</span>
+                            <span id="invoice-items">0</span>
+                        </div>
+                        <div class="invoice-row">
+                            <span>Total:</span>
+                            <span id="invoice-total">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-checkout-btn" class="btn btn-outline">Cancel</button>
+                    <button type="submit" id="complete-checkout-btn" class="btn btn-primary">Complete & Print</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Receipt Modal -->
+    <div id="receipt-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="receipt-content">
+                <div class="receipt-header">
+                    <h2>Grocery Store</h2>
+                    <p>123 Main Street, Anytown</p>
+                    <p>Phone: 555-123-4567</p>
+                </div>
+                
+                <div class="receipt-details">
+                    <div class="receipt-row">
+                        <span>Invoice #:</span>
+                        <span id="receipt-invoice"></span>
+                    </div>
+                    <div class="receipt-row">
+                        <span>Date:</span>
+                        <span id="receipt-date"></span>
+                    </div>
+                    <div class="receipt-row">
+                        <span>Cashier:</span>
+                        <span>{{ session['username'] }}</span>
+                    </div>
+                </div>
+                
+                <div class="receipt-items">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receipt-items-body">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="receipt-total">
+                    <div class="receipt-row">
+                        <span>Total:</span>
+                        <span id="receipt-total"></span>
+                    </div>
+                </div>
+                
+                <div class="receipt-footer">
+                    <p>Thank you for shopping with us!</p>
+                    <p id="receipt-payment-status"></p>
+                </div>
+                
+                <div class="receipt-actions">
+                    <button id="print-receipt-btn" class="btn btn-primary">Print Receipt</button>
+                    <button id="close-receipt-btn" class="btn btn-outline">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    // Enable/Disable Buttons Based on Cart Items
+    function updateButtonsState() {
+            const checkoutBtn = document.getElementById("checkout-btn");
+            const clearCartBtn = document.getElementById("clear-cart-btn");
+            const cartItems = document.getElementById("cart-items").children.length > 1;
+
+            checkoutBtn.disabled = !cartItems;
+            clearCartBtn.disabled = !cartItems;
+        }
+
+        // Event Listeners
+        document.getElementById("clear-cart-btn").addEventListener("click", () => {
+            document.getElementById("cart-items").innerHTML = '<div class="empty-cart-message">Cart is empty</div>';
+            updateButtonsState();
+        });
+
+        document.getElementById("checkout-btn").addEventListener("click", () => {
+            alert("Proceeding to checkout...");
+        });
+
+        updateButtonsState();
+
+
+
+        // DOM Elements
+        const inventoryTable = document.getElementById('inventory-table');
+        const inventorySearch = document.getElementById('inventory-search');
+        const cartItems = document.getElementById('cart-items');
+        const cartCount = document.getElementById('cart-count');
+        const cartTotal = document.getElementById('cart-total');
+        const clearCartBtn = document.getElementById('clear-cart-btn');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const checkoutModal = document.getElementById('checkout-modal');
+        const checkoutForm = document.getElementById('checkout-form');
+        const cancelCheckoutBtn = document.getElementById('cancel-checkout-btn');
+        const paymentPending = document.getElementById('payment-pending');
+        const paymentWarning = document.getElementById('payment-warning');
+        const receiptModal = document.getElementById('receipt-modal');
+        const printReceiptBtn = document.getElementById('print-receipt-btn');
+        const closeReceiptBtn = document.getElementById('close-receipt-btn');
+        const closeModalBtns = document.querySelectorAll('.close-modal');
+        
+        // Cart state
+        let cart = [];
+        
+        // Event Listeners
+        inventorySearch.addEventListener('input', () => {
+            const searchTerm = inventorySearch.value.toLowerCase();
+            const rows = inventoryTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const category = row.cells[1].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || category.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+        
+        inventoryTable.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-to-cart-btn')) {
+                const row = e.target.closest('tr');
+                const itemId = parseInt(row.dataset.id);
+                const itemName = row.dataset.name;
+                const itemPrice = parseFloat(row.dataset.price);
+                const itemCategory = row.dataset.category;
+                const currentStock = parseInt(row.cells[3].textContent);
+                
+                if (currentStock <= 0) {
+                    alert('This item is out of stock');
+                    return;
+                }
+                
+                addToCart(itemId, itemName, itemPrice, itemCategory);
+            }
+        });
+        
+        clearCartBtn.addEventListener('click', clearCart);
+        
+        checkoutBtn.addEventListener('click', () => {
+            // Set invoice preview details
+            document.getElementById('invoice-date').textContent = new Date().toLocaleDateString();
+            document.getElementById('invoice-items').textContent = cart.reduce((total, item) => total + item.quantity, 0);
+            document.getElementById('invoice-total').textContent = `$${calculateTotal().toFixed(2)}`;
+            
+            // Show checkout modal
+            checkoutModal.style.display = 'block';
+        });
+        
+        cancelCheckoutBtn.addEventListener('click', () => {
+            checkoutModal.style.display = 'none';
+        });
+        
+        paymentPending.addEventListener('change', () => {
+            if (paymentPending.checked) {
+                paymentWarning.classList.remove('hidden');
+            } else {
+                paymentWarning.classList.add('hidden');
+            }
+        });
+        
+        checkoutForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const customerName = document.getElementById('customer-name').value;
+            const customerPhone = document.getElementById('customer-phone').value;
+            const paymentStatus = document.querySelector('input[name="payment-status"]:checked').value;
+            
+            // Validate if payment is pending
+            if (paymentStatus === 'pending' && (!customerName || !customerPhone)) {
+                alert('Customer name and phone are required for Pay Later option');
+                return;
+            }
+            
+            // Prepare cart items for submission
+            const cartItems = cart.map(item => ({
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                price: item.price,
+                quantity: item.quantity,
+                subtotal: item.price * item.quantity
+            }));
+            
+            try {
+                const response = await fetch('/cashier/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        items: cartItems,
+                        customer: {
+                            name: customerName,
+                            phone: customerPhone,
+                            paymentStatus: paymentStatus
+                        },
+                        total: calculateTotal()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Close checkout modal
+                    checkoutModal.style.display = 'none';
+                    
+                    // Show receipt
+                    showReceipt(data.invoice_number, customerName, paymentStatus);
+                    
+                    // Clear cart after successful checkout
+                    clearCart();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred during checkout');
+            }
+        });
+        
+        printReceiptBtn.addEventListener('click', () => {
+            // In a real app, this would trigger printing
+            window.print();
+        });
+        
+        closeReceiptBtn.addEventListener('click', () => {
+            receiptModal.style.display = 'none';
+        });
+        
+        closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                checkoutModal.style.display = 'none';
+                receiptModal.style.display = 'none';
+            });
+        });
+        
+        window.addEventListener('click', (event) => {
+            if (event.target === checkoutModal) {
+                checkoutModal.style.display = 'none';
+            }
+            if (event.target === receiptModal) {
+                receiptModal.style.display = 'none';
+            }
+        });
+        
+        // Cart Functions
+        function addToCart(id, name, price, category) {
+            const existingItem = cart.find(item => item.id === id);
+            
+            if (existingItem) {
+                // Check if we have enough stock
+                const row = inventoryTable.querySelector(`tr[data-id="${id}"]`);
+                const currentStock = parseInt(row.cells[3].textContent);
+                
+                if (existingItem.quantity >= currentStock) {
+                    alert(`Cannot add more ${name} than available in stock (${currentStock})`);
+                    return;
+                }
+                
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    id,
+                    name,
+                    price,
+                    category,
+                    quantity: 1
+                });
+            }
+            
+            updateCartDisplay();
+        }
+        
+        function updateCartQuantity(id, newQuantity) {
+            if (newQuantity <= 0) {
+                removeFromCart(id);
+                return;
+            }
+            
+            const item = cart.find(item => item.id === id);
+            if (!item) return;
+            
+            // Check if we have enough stock
+            const row = inventoryTable.querySelector(`tr[data-id="${id}"]`);
+            const currentStock = parseInt(row.cells[3].textContent);
+            
+            if (newQuantity > currentStock) {
+                alert(`Cannot add more ${item.name} than available in stock (${currentStock})`);
+                return;
+            }
+            
+            item.quantity = newQuantity;
+            updateCartDisplay();
+        }
+        
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartDisplay();
+        }
+        
+        function clearCart() {
+            cart = [];
+            updateCartDisplay();
+        }
+        
+        function calculateTotal() {
+            return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+        }
+        
+        function updateCartDisplay() {
+            const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+            cartCount.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+            cartTotal.textContent = `$${calculateTotal().toFixed(2)}`;
+            
+            // Update buttons state
+            clearCartBtn.disabled = cart.length === 0;
+            checkoutBtn.disabled = cart.length === 0;
+            
+            // Update cart items display
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<div class="empty-cart-message">Cart is empty</div>';
+                return;
+            }
+            
+            const cartHtml = cart.map(item => `
+                <div class="cart-item" data-id="${item.id}">
+                    <div class="cart-item-details">
+                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-price">$${item.price.toFixed(2)}</div>
+                    </div>
+                    <div class="cart-item-actions">
+                        <div class="quantity-control">
+                            <button class="quantity-btn decrease-btn">-</button>
+                            <span class="quantity-value">${item.quantity}</span>
+                            <button class="quantity-btn increase-btn">+</button>
+                        </div>
+                        <div class="cart-item-subtotal">$${(item.price * item.quantity).toFixed(2)}</div>
+                        <button class="btn btn-small btn-danger remove-btn">×</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            cartItems.innerHTML = cartHtml;
+            
+            // Add event listeners to cart item buttons
+            cartItems.querySelectorAll('.cart-item').forEach(cartItem => {
+                const itemId = parseInt(cartItem.dataset.id);
+                const decreaseBtn = cartItem.querySelector('.decrease-btn');
+                const increaseBtn = cartItem.querySelector('.increase-btn');
+                const removeBtn = cartItem.querySelector('.remove-btn');
+                
+                decreaseBtn.addEventListener('click', () => {
+                    const item = cart.find(item => item.id === itemId);
+                    if (item) {
+                        updateCartQuantity(itemId, item.quantity - 1);
+                    }
+                });
+                
+                increaseBtn.addEventListener('click', () => {
+                    const item = cart.find(item => item.id === itemId);
+                    if (item) {
+                        updateCartQuantity(itemId, item.quantity + 1);
+                    }
+                });
+                
+                removeBtn.addEventListener('click', () => {
+                    removeFromCart(itemId);
+                });
+            });
+        }
+        
+        function showReceipt(invoiceNumber, customerName, paymentStatus) {
+            // Set receipt details
+            document.getElementById('receipt-invoice').textContent = invoiceNumber;
+            document.getElementById('receipt-date').textContent = new Date().toLocaleString();
+            document.getElementById('receipt-total').textContent = `$${calculateTotal().toFixed(2)}`;
+            
+            // Set payment status message
+            if (paymentStatus === 'pending') {
+                document.getElementById('receipt-payment-status').textContent = 'Payment Status: PENDING';
+                document.getElementById('receipt-payment-status').classList.add('status-pending');
+            } else {
+                document.getElementById('receipt-payment-status').textContent = 'Payment Status: PAID';
+                document.getElementById('receipt-payment-status').classList.add('status-paid');
+            }
+            
+            // Generate receipt items
+            const receiptItemsHtml = cart.map(item => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td>$${(item.price * item.quantity).toFixed(2)}</td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('receipt-items-body').innerHTML = receiptItemsHtml;
+            
+            // Show receipt modal
+            receiptModal.style.display = 'block';
+        }
+    </script>
+    <style>.animated-button {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 8px;
+        border: 4px solid transparent;
+        font-size: 16px;
+        background-color: inherit;
+        border-radius: 100px;
+        font-weight: 100;
+        color: rgb(13, 15, 11);
+        box-shadow: 0 0 0 2px greenyellow;
+        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .animated-button svg {
+        position: absolute;
+        width: 5px;
+        fill: greenyellow;
+        z-index: 9;
+        transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .animated-button:hover {
+        box-shadow: 0 0 0 12px transparent;
+        color: #212121;
+        border-radius: 12px;
+    }
+
+    .animated-button:active {
+        scale: 0.95;
+        box-shadow: 0 0 0 4px greenyellow;
+    }
+
+    .animated-button:hover .circle {
+        width: 20px;
+        height: 20px;
+        opacity: 1;
+    }</style>
+</body>
+</html>
