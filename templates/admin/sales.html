@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Analytics - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Sales Analytics</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin_inventory') }}">Inventory</a></li>
+                <li><a href="{{ url_for('admin_vendors') }}">Vendors</a></li>
+                <li><a href="{{ url_for('admin_sales') }}" class="active">Sales Analytics</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="dashboard-summary">
+                <div class="summary-card">
+                    <h3>Total Sales</h3>
+                    <div class="summary-value">
+                        ${{ total_sales|default('0.00') }}
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Transactions</h3>
+                    <div class="summary-value">
+                        {{ sales|length }}
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <h3>Average Sale</h3>
+                    <div class="summary-value">
+                        ${{ average_sale|default('0.00') }}
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <h3>Pending Payments</h3>
+                    <div class="summary-value">
+                        {{ pending_count|default('0') }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sales-charts">
+                <div class="chart-tabs">
+                    <button class="chart-tab active" data-tab="monthly">Monthly</button>
+                    <button class="chart-tab" data-tab="daily">Daily</button>
+                    <button class="chart-tab" data-tab="category">By Category</button>
+                </div>
+                
+                <div class="chart-content">
+                    <div class="chart-panel active" id="monthly-chart-panel">
+                        <div class="chart-container">
+                            <canvas id="monthly-sales-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-panel" id="daily-chart-panel">
+                        <div class="chart-container">
+                            <canvas id="daily-sales-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-panel" id="category-chart-panel">
+                        <div class="chart-container">
+                            <canvas id="category-sales-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sales-history">
+                <h3>Recent Sales</h3>
+                <div class="inventory-table-container">
+                    <table class="data-table" id="sales-table">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales[:10] %}
+                            <tr>
+                                <td>{{ sale['invoice_number'] }}</td>
+                                <td>{{ sale['date'] }}</td>
+                                <td>
+                                    {% if sale['customer_name'] %}
+                                        {{ sale['customer_name'] }}
+                                    {% else %}
+                                        Walk-in Customer
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set items = sale['items'] %}
+                                    {% if items is string %}
+                                        {% set items = items|tojson %}
+                                    {% endif %}
+                                    {{ items|length if items is iterable else '1' }} items
+                                </td>
+                                <td>${{ sale['total'] }}</td>
+                                <td class="{% if sale['payment_status'] == 'pending' %}status-pending{% else %}status-paid{% endif %}">
+                                    {{ sale['payment_status']|capitalize }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+      
+    // Chart data - with fallbacks for missing data
+    const monthlyData = JSON.parse(document.getElementById('monthly-data').value || '{"labels":[],"values":[]}');
+    const categoryData = JSON.parse(document.getElementById('category-data').value || '{"labels":[],"values":[]}');
+    
+    // Generate daily data (for demo)
+    const dailyData = {
+        labels: Array.from({length: 30}, (_, i) => i + 1),
+        values: Array.from({length: 30}, () => Math.floor(Math.random() * 500) + 100)
+    };
+    
+    // Create charts
+    document.addEventListener('DOMContentLoaded', () => {
+        // Monthly sales chart
+        const monthlyCtx = document.getElementById('monthly-sales-chart').getContext('2d');
+        new Chart(monthlyCtx, {
+            type: 'line',
+            data: {
+                labels: monthlyData.labels,
+                datasets: [{
+                    label: 'Monthly Sales ($)',
+                    data: monthlyData.values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        // Rest of the chart initialization code...
+    });
+
+            // Daily sales chart
+            const dailyCtx = document.getElementById('daily-sales-chart').getContext('2d');
+            new Chart(dailyCtx, {
+                type: 'bar',
+                data: {
+                    labels: dailyData.labels,
+                    datasets: [{
+                        label: 'Daily Sales ($)',
+                        data: dailyData.values,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Category sales chart
+            const categoryCtx = document.getElementById('category-sales-chart').getContext('2d');
+            new Chart(categoryCtx, {
+                type: 'pie',
+                data: {
+                    labels: categoryData.labels,
+                    datasets: [{
+                        label: 'Sales by Category',
+                        data: categoryData.values,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)',
+                            'rgba(255, 159, 64, 0.2)',
+                            'rgba(199, 199, 199, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                }
+            });
+            
+            // Tab switching
+            const chartTabs = document.querySelectorAll('.chart-tab');
+            const chartPanels = document.querySelectorAll('.chart-panel');
+            
+            chartTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and panels
+                    chartTabs.forEach(t => t.classList.remove('active'));
+                    chartPanels.forEach(p => p.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding panel
+                    tab.classList.add('active');
+                    const tabId = tab.dataset.tab;
+                    document.getElementById(`${tabId}-chart-panel`).classList.add('active');
+                });
+            });
+        
+    </script>
+</body>
+</html>
