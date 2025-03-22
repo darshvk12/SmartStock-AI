@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Grocery Store Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Admin Dashboard</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('admin_dashboard') }}" class="active">Dashboard</a></li>
+                <li><a href="{{ url_for('admin_inventory') }}">Inventory</a></li>
+                <li><a href="{{ url_for('admin_vendors') }}">Vendors</a></li>
+                <li><a href="{{ url_for('admin_sales') }}">Sales Analytics</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="dashboard-summary">
+                <div class="summary-card">
+                    <h3>Total Inventory Items</h3>
+                    <div class="summary-value" id="total-inventory">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Low Stock Items</h3>
+                    <div class="summary-value" id="low-stock">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Sales</h3>
+                    <div class="summary-value" id="total-sales">Loading...</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Total Vendors</h3>
+                    <div class="summary-value" id="total-vendors">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-charts">
+                <div class="chart-container">
+                    <h3>Monthly Sales</h3>
+                    <canvas id="monthly-sales-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Sales by Category</h3>
+                    <canvas id="category-sales-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="dashboard-recent">
+                <h3>Recent Activities</h3>
+                <div class="recent-container" id="recent-activities">
+                    <p>Loading recent activities...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // Fetch dashboard data
+        async function fetchDashboardData() {
+            try {
+                // Fetch inventory data
+                const inventoryResponse = await fetch('/cashier/inventory/get');
+                const inventoryData = await inventoryResponse.json();
+                
+                if (inventoryData.success) {
+                    const inventory = inventoryData.inventory;
+                    document.getElementById('total-inventory').textContent = inventory.length;
+                    
+                    const lowStockItems = inventory.filter(item => item.stock <= 10);
+                    document.getElementById('low-stock').textContent = lowStockItems.length;
+                }
+                
+                // For demo purposes, we'll use some mock data for charts
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthlySalesData = months.map(() => Math.floor(Math.random() * 5000) + 1000);
+                
+                const categories = ['Dairy', 'Bakery', 'Meat', 'Produce', 'Beverages', 'Snacks', 'Canned Goods'];
+                const categorySalesData = categories.map(() => Math.floor(Math.random() * 3000) + 500);
+                
+                // Calculate total sales
+                const totalSales = monthlySalesData.reduce((sum, val) => sum + val, 0);
+                document.getElementById('total-sales').textContent = '$' + totalSales.toLocaleString();
+                
+                // Set total vendors
+                document.getElementById('total-vendors').textContent = '5';
+                
+                // Create monthly sales chart
+                const monthlySalesCtx = document.getElementById('monthly-sales-chart').getContext('2d');
+                new Chart(monthlySalesCtx, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [{
+                            label: 'Monthly Sales ($)',
+                            data: monthlySalesData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                // Create category sales chart
+                const categorySalesCtx = document.getElementById('category-sales-chart').getContext('2d');
+                new Chart(categorySalesCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: 'Sales by Category ($)',
+                            data: categorySalesData,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.2)',
+                                'rgba(54, 162, 235, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(75, 192, 192, 0.2)',
+                                'rgba(153, 102, 255, 0.2)',
+                                'rgba(255, 159, 64, 0.2)',
+                                'rgba(199, 199, 199, 0.2)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)',
+                                'rgba(255, 159, 64, 1)',
+                                'rgba(199, 199, 199, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                // Set recent activities
+                const recentActivities = [
+                    { type: 'sale', description: 'New sale completed - Invoice #INV-20230601-1234', time: '10 minutes ago' },
+                    { type: 'inventory', description: 'Restocked Rice - Added 50 units', time: '1 hour ago' },
+                    { type: 'vendor', description: 'Added new vendor: Local Produce Co.', time: '3 hours ago' },
+                    { type: 'sale', description: 'New sale completed - Invoice #INV-20230601-1233', time: '5 hours ago' },
+                    { type: 'inventory', description: 'Low stock alert: Milk (5 units remaining)', time: '6 hours ago' }
+                ];
+                
+                const activitiesHtml = recentActivities.map(activity => `
+                    <div class="recent-item recent-${activity.type}">
+                        <div class="recent-icon"></div>
+                        <div class="recent-details">
+                            <p>${activity.description}</p>
+                            <span class="recent-time">${activity.time}</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('recent-activities').innerHTML = activitiesHtml;
+                
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            }
+        }
+        
+        // Load dashboard data when page loads
+        document.addEventListener('DOMContentLoaded', fetchDashboardData);
+    </script>
+</body>
+</html>
