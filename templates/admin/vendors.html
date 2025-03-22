@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Management - Grocery Store</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Vendor Management</h1>
+            <div class="user-actions">
+                <span>Welcome, {{ session['username'] }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+            </div>
+        </header>
+        
+        <nav class="dashboard-nav">
+            <ul>
+                <li><a href="{{ url_for('admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin_inventory') }}">Inventory</a></li>
+                <li><a href="{{ url_for('admin_vendors') }}" class="active">Vendors</a></li>
+                <li><a href="{{ url_for('admin_sales') }}">Sales Analytics</a></li>
+            </ul>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="inventory-actions">
+                <div class="search-container">
+                    <input type="text" id="vendor-search" placeholder="Search vendors...">
+                </div>
+                <button id="add-vendor-btn" class="btn btn-primary">Add New Vendor</button>
+            </div>
+            
+            <div class="inventory-table-container">
+                <table class="data-table" id="vendor-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact Person</th>
+                            <th>Categories</th>
+                            <th>Contact Info</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vendor in vendors %}
+                        <tr data-id="{{ vendor['id'] }}">
+                            <td>{{ vendor['name'] }}</td>
+                            <td>{{ vendor['contact'] }}</td>
+                            <td>{{ vendor['categories'] }}</td>
+                            <td>
+                                <div>Phone: {{ vendor['phone'] }}</div>
+                                <div>Email: {{ vendor['email'] }}</div>
+                            </td>
+                            <td class="actions-cell">
+                                <button class="btn btn-small btn-danger delete-btn" data-id="{{ vendor['id'] }}">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Add Vendor Modal -->
+    <div id="add-vendor-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Add New Vendor</h2>
+            <form id="add-vendor-form">
+                <div class="form-group">
+                    <label for="vendor-name">Name</label>
+                    <input type="text" id="vendor-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="vendor-contact">Contact Person</label>
+                    <input type="text" id="vendor-contact" name="contact" required>
+                </div>
+                <div class="form-group">
+                    <label for="vendor-phone">Phone</label>
+                    <input type="text" id="vendor-phone" name="phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="vendor-email">Email</label>
+                    <input type="email" id="vendor-email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="vendor-address">Address</label>
+                    <input type="text" id="vendor-address" name="address" required>
+                </div>
+                <div class="form-group">
+                    <label for="vendor-categories">Categories</label>
+                    <input type="text" id="vendor-categories" name="categories" required placeholder="Dairy, Produce, etc. (comma separated)">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add Vendor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const vendorTable = document.getElementById('vendor-table');
+        const vendorSearch = document.getElementById('vendor-search');
+        const addVendorBtn = document.getElementById('add-vendor-btn');
+        const addVendorModal = document.getElementById('add-vendor-modal');
+        const addVendorForm = document.getElementById('add-vendor-form');
+        const closeModalBtn = document.querySelector('.close-modal');
+        
+        // Event Listeners
+        addVendorBtn.addEventListener('click', () => {
+            addVendorModal.style.display = 'block';
+        });
+        
+        closeModalBtn.addEventListener('click', () => {
+            addVendorModal.style.display = 'none';
+        });
+        
+        window.addEventListener('click', (event) => {
+            if (event.target === addVendorModal) {
+                addVendorModal.style.display = 'none';
+            }
+        });
+        
+        // Search functionality
+        vendorSearch.addEventListener('input', () => {
+            const searchTerm = vendorSearch.value.toLowerCase();
+            const rows = vendorTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[0].textContent.toLowerCase();
+                const contact = row.cells[1].textContent.toLowerCase();
+                const categories = row.cells[2].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || contact.includes(searchTerm) || categories.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+        
+        // Add vendor form submission
+        addVendorForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                name: document.getElementById('vendor-name').value,
+                contact: document.getElementById('vendor-contact').value,
+                phone: document.getElementById('vendor-phone').value,
+                email: document.getElementById('vendor-email').value,
+                address: document.getElementById('vendor-address').value,
+                categories: document.getElementById('vendor-categories').value
+            };
+            
+            try {
+                const response = await fetch('/admin/vendors/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Add new row to table
+                    const tbody = vendorTable.querySelector('tbody');
+                    const newRow = document.createElement('tr');
+                    newRow.dataset.id = data.vendor.id;
+                    
+                    newRow.innerHTML = `
+                        <td>${data.vendor.name}</td>
+                        <td>${data.vendor.contact}</td>
+                        <td>${data.vendor.categories}</td>
+                        <td>
+                            <div>Phone: ${data.vendor.phone}</div>
+                            <div>Email: ${data.vendor.email}</div>
+                        </td>
+                        <td class="actions-cell">
+                            <button class="btn btn-small btn-danger delete-btn" data-id="${data.vendor.id}">Delete</button>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(newRow);
+                    
+                    // Reset form and close modal
+                    addVendorForm.reset();
+                    addVendorModal.style.display = 'none';
+                    
+                    // Show success message
+                    alert('Vendor added successfully!');
+                } else {
+                    alert('Error adding vendor: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while adding the vendor.');
+            }
+        });
+        
+        // Delete vendor
+        vendorTable.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const vendorId = e.target.dataset.id;
+                const vendorName = e.target.closest('tr').cells[0].textContent;
+                
+                if (confirm(`Are you sure you want to delete ${vendorName}?`)) {
+                    deleteVendor(vendorId);
+                }
+            }
+        });
+        
+        async function deleteVendor(vendorId) {
+            try {
+                const response = await fetch(`/admin/vendors/delete/${vendorId}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Remove row from table
+                    const row = vendorTable.querySelector(`tr[data-id="${vendorId}"]`);
+                    row.remove();
+                    
+                    // Show success message
+                    alert('Vendor deleted successfully!');
+                } else {
+                    alert('Error deleting vendor: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the vendor.');
+            }
+        }
+    </script>
+</body>
+</html>
